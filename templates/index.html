@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>QR Code Generator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 700px; }
+    h1 { margin-bottom: 1rem; }
+    form { border: 1px solid #ddd; padding: 1rem; border-radius: 0.5rem; }
+    .field-group { margin-bottom: 1rem; }
+    label { display: block; margin-bottom: 0.25rem; }
+    input[type="text"] { width: 100%; padding: 0.5rem; }
+    input[type="file"] { padding: 0.25rem 0; }
+    button { padding: 0.5rem 1rem; cursor: pointer; }
+    .mode-select label { display: inline-block; margin-right: 1rem; }
+    .qr-result { margin-top: 2rem; }
+    .qr-result img { max-width: 250px; height: auto; border: 1px solid #ccc; padding: 0.5rem; }
+    .flash { color: #b00020; margin-bottom: 0.5rem; }
+  </style>
+</head>
+<body>
+  <h1>QR Code Generator</h1>
+  <p>Generate unlimited, ad‑free QR codes for URLs, text, or your own files.</p>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      {% for msg in messages %}
+        <div class="flash">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <form method="post" enctype="multipart/form-data">
+    <div class="field-group mode-select">
+      <strong>Content type:</strong><br>
+      <label>
+        <input type="radio" name="mode" value="url" checked>
+        URL or text
+      </label>
+      <label>
+        <input type="radio" name="mode" value="file">
+        File upload
+      </label>
+    </div>
+
+    <div class="field-group" id="url-input">
+      <label for="url">URL or text</label>
+      <input
+        type="text"
+        id="url"
+        name="url"
+        placeholder="https://example.com or any text"
+      >
+    </div>
+
+    <div class="field-group" id="file-input" style="display:none;">
+      <label for="file">Choose a file</label>
+      <input type="file" id="file" name="file">
+      <small>Images, videos, PDFs, etc. (up to your configured limit).</small>
+    </div>
+
+    <button type="submit">Generate QR code</button>
+  </form>
+
+  {% if qr_image_url %}
+    <div class="qr-result">
+      <h2>Your QR code</h2>
+      <img src="{{ qr_image_url }}" alt="Generated QR code">
+      {% if target_url %}
+        <p>Scans of this code will open:</p>
+        <p><a href="{{ target_url }}" target="_blank" rel="noopener noreferrer">{{ target_url }}</a></p>
+      {% endif %}
+      <p>You can download or share the QR image and it will stay valid as long as this app is running and the file (if any) exists.</p>
+    </div>
+  {% endif %}
+
+  <script>
+    const urlRadio = document.querySelector('input[name="mode"][value="url"]');
+    const fileRadio = document.querySelector('input[name="mode"][value="file"]');
+    const urlInput = document.getElementById('url-input');
+    const fileInput = document.getElementById('file-input');
+
+    function updateMode() {
+      if (urlRadio.checked) {
+        urlInput.style.display = '';
+        fileInput.style.display = 'none';
+      } else {
+        urlInput.style.display = 'none';
+        fileInput.style.display = '';
+      }
+    }
+
+    urlRadio.addEventListener('change', updateMode);
+    fileRadio.addEventListener('change', updateMode);
+    updateMode();
+  </script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>QR Code Generator</title>
+  <title>Sharp QR Code Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 700px; }
@@ -17,10 +17,18 @@
     .qr-result { margin-top: 2rem; }
     .qr-result img { max-width: 250px; height: auto; border: 1px solid #ccc; padding: 0.5rem; }
     .flash { color: #b00020; margin-bottom: 0.5rem; }
+    .card {
+      border: 1px solid #ddd;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      margin-bottom: 1.5rem;
+      background: #fafafa;
+    }
   </style>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 </head>
 <body>
-  <h1>QR Code Generator</h1>
+  <h1>Sharp QR Code Generator</h1>
   <p>Generate unlimited, ad‑free QR codes for URLs, text, or your own files.</p>
 
   {% with messages = get_flashed_messages() %}
@@ -31,37 +39,50 @@
     {% endif %}
   {% endwith %}
 
-  <form method="post" enctype="multipart/form-data">
-    <div class="field-group mode-select">
-      <strong>Content type:</strong><br>
-      <label>
-        <input type="radio" name="mode" value="url" checked>
-        URL or text
-      </label>
-      <label>
-        <input type="radio" name="mode" value="file">
-        File upload
-      </label>
+  {% if not paid %}
+    <div class="card">
+      <h2>Unlock QR Generator</h2>
+      <p>Pay once to unlock QR code generation on this device/browser.</p>
+      <p><strong>Price:</strong> ₹{{ price_inr }}</p>
+      <button type="button" onclick="startPayment()">Pay with Razorpay</button>
     </div>
+  {% endif %}
 
-    <div class="field-group" id="url-input">
-      <label for="url">URL or text</label>
-      <input
-        type="text"
-        id="url"
-        name="url"
-        placeholder="https://example.com or any text"
-      >
-    </div>
+  {% if paid %}
+    <form method="post" enctype="multipart/form-data">
+      <div class="field-group mode-select">
+        <strong>Content type:</strong><br>
+        <label>
+          <input type="radio" name="mode" value="url" checked>
+          URL or text
+        </label>
+        <label>
+          <input type="radio" name="mode" value="file">
+          File upload
+        </label>
+      </div>
 
-    <div class="field-group" id="file-input" style="display:none;">
-      <label for="file">Choose a file</label>
-      <input type="file" id="file" name="file">
-      <small>Images, videos, PDFs, etc. (up to your configured limit).</small>
-    </div>
+      <div class="field-group" id="url-input">
+        <label for="url">URL or text</label>
+        <input
+          type="text"
+          id="url"
+          name="url"
+          placeholder="https://example.com or any text"
+        >
+      </div>
 
-    <button type="submit">Generate QR code</button>
-  </form>
+      <div class="field-group" id="file-input" style="display:none;">
+        <label for="file">Choose a file</label>
+        <input type="file" id="file" name="file">
+        <small>Images, videos, PDFs, etc. (up to your configured limit).</small>
+      </div>
+
+      <button type="submit">Generate QR code</button>
+    </form>
+  {% else %}
+    <p><em>Complete the payment above to enable QR code generation.</em></p>
+  {% endif %}
 
   {% if qr_image_url %}
     <div class="qr-result">
@@ -82,7 +103,7 @@
     const fileInput = document.getElementById('file-input');
 
     function updateMode() {
-      if (urlRadio.checked) {
+      if (urlRadio && urlRadio.checked) {
         urlInput.style.display = '';
         fileInput.style.display = 'none';
       } else {
@@ -91,9 +112,49 @@
       }
     }
 
-    urlRadio.addEventListener('change', updateMode);
-    fileRadio.addEventListener('change', updateMode);
-    updateMode();
+    if (urlRadio && fileRadio) {
+      urlRadio.addEventListener('change', updateMode);
+      fileRadio.addEventListener('change', updateMode);
+      updateMode();
+    }
+
+    async function startPayment() {
+      try {
+        const res = await fetch("/create_order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount: {{ price_inr }} })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || "Failed to create order");
+          return;
+        }
+
+        const options = {
+          key: "{{ razorpay_key_id }}",
+          amount: data.amount,            // in paise
+          currency: data.currency,
+          name: "Sharp QR Code Generator",
+          description: "Unlock QR generator",
+          order_id: data.order_id,
+          // ABSOLUTE URL + redirect so Razorpay posts here and then sends you back. [web:73][web:74][web:79]
+          callback_url: "{{ url_for('payment_handler', _external=True) }}",
+          redirect: true,
+          theme: { color: "#3399cc" }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.on("payment.failed", function (resp) {
+          alert("Payment failed or cancelled. Please try again.");
+          console.log(resp.error);
+        });
+        rzp.open();
+      } catch (e) {
+        console.error(e);
+        alert("Unexpected error while starting payment.");
+      }
+    }
   </script>
 </body>
 </html>

@@ -2,3 +2,4 @@ Flask
 qrcode[pil]
 gunicorn
 razorpay
+python-dotenv
